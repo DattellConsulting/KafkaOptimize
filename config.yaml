@@ -1,0 +1,133 @@
+KAFKA_PARAMS_TO_TEST:
+  - KAFKA_HEAP_OPTS
+  - MaxGCPauseMillis
+  - G1ConcRefinementThreads
+  - G1ParallelGCThreads
+  - KAFKA_NUM_NETWORK_THREADS
+  - KAFKA_NUM_IO_THREADS
+  - socket_send_buffer_bytes
+  - socket_receive_buffer_bytes
+
+client_parameters_to_test:
+  - batch_size
+  - compression_type
+  - consumer_count
+  - partitions
+  - producer_count
+  - fetch_wait_max_ms
+  - linger_ms
+  - max_in_flight_messages
+
+PARAMETERS:
+  KAFKA_HEAP_OPTS:
+    - "-Xms2G -Xmx2G"
+    - "-Xms4G -Xmx4G"
+    - "-Xms8G -Xmx8G"
+    - "-Xms12G -Xmx12G"
+  MaxGCPauseMillis:
+    - "1"
+    - "5"
+    - "10"
+    - "20"
+    - "40"
+  G1ConcRefinementThreads:
+    - "4"
+    - "8"
+    - "16"
+    - "32"
+  G1ParallelGCThreads:
+    - "4"
+    - "8"
+    - "16"
+    - "32"
+  KAFKA_NUM_NETWORK_THREADS:
+    - "4"
+    - "8"
+    - "16"
+    - "32"
+  KAFKA_NUM_IO_THREADS:
+    - "8"
+    - "16"
+    - "32"
+  socket_send_buffer_bytes:
+    - "102400"
+    - "524288"
+    - "1048576"
+  socket_receive_buffer_bytes:
+    - "102400"
+    - "524288"
+    - "1048576"
+
+client_parameters:
+  batch_size:
+    - "512"
+    - "1024"
+    - "2048"
+    - "4096"
+    - "8192"
+    - "16384"
+  compression_type:
+    - "none"
+    - "snappy"
+    - "zlib"
+    - "gzip"
+  consumer_count:
+    - "2"
+    - "5"
+    - "10"
+  partitions:
+    - "1"
+    - "5"
+    - "10"
+    - "20"
+    - "40"
+  producer_count:
+    - "5"
+    - "10"
+    - "20"
+    - "40"
+  fetch_wait_max_ms:
+    - "1"
+    - "2"
+    - "5"
+    - "10"
+    - "20"
+    - "40"
+  linger_ms:
+    - "0"
+    - "1"
+    - "2"
+    - "5"
+    - "10"
+    - "20"
+  max_in_flight_messages:
+    - "1"
+    - "2"
+    - "5"
+
+defaults:
+  KAFKA_HEAP_OPTS: "-Xms4G -Xmx4G"
+  MaxGCPauseMillis: "20"
+  G1ConcRefinementThreads: "16"
+  G1ParallelGCThreads: "16"
+  KAFKA_NUM_NETWORK_THREADS: "4"
+  KAFKA_NUM_IO_THREADS: "16"
+  socket_send_buffer_bytes: "1048576"
+  socket_receive_buffer_bytes: "524288"
+  socket_request_max_bytes: "104857600"
+  latency: "2ms"
+
+client_defaults:
+  batch_size: "16384"
+  compression_type: "snappy"
+  consumer_count: "5"
+  partitions: "10"
+  producer_count: "5"
+  fetch_wait_max_ms: "5"
+  linger_ms: "50"
+  max_in_flight_messages: "5"
+  max_latency: "600"
+  acks: "-1"
+  num_messages: "6400"
+  bootstrap_server: "10.10.1.2:9092"
+

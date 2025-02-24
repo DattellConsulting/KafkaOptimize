@@ -2,32 +2,32 @@
 End to end performance testing and automated optimization for both Apache Kafka and clients.
 
 ## Problem: 
-The performance testing tool that ships with Apache Kafka only tests publish latency/throughput leaving consumer performance untested.  Additionally, the performance test does not attempt to optimize Kafka or the clients.
+The performance testing tool that ships with Apache Kafka tests publish latency/throughput leaving consumer performance untested.  Additionally, the performance test does not attempt to optimize Kafka or the clients.
 
 ## Quickstart:
 This script uses the python client and Traffic Control (tc) to optionally simulate network latency, so you'll need to run as root.
 
-Tested on Ubuntu 22.04
+Tested on Ubuntu 22.04.
 
 1. apt-get update
 2. apt install python3.10-venv openjdk-21-jdk
 3. python3 -m venv myenv
 4. source myenv/bin/activate
-5. pip install confluent-kafka
-6. python gen_json.py (generate your test data)
-7. python test-runner.py (run the test)
+5. pip install confluent-kafka PyYAML
+6. python gen_json.py  # generate test data as large_flattened.json
+7. python test-runner.py  # run the test
 
 ## What the script does:
-Repeatedly installs and tests throughput up to maximum end to end latency, records results, updates settings, and repeats.  If any settings increase throughput, the setting will be adopted as the new default for the rest of the test.  At the end of the test, the best configuration of Kafka and the clients will be output.
+Installs and tests throughput up to maximum end to end latency, records results, updates settings, and repeats.  If any settings increase throughput, the setting will be adopted as the new default for the rest of the test.  At the end of the test, the best configuration of Kafka and the clients will be output.
 
-In case we want to run a test with existing Kakfa or clients, starting the Kafka application and running an end to end producer/consumer test can both be run individually.
+In case we want to run a test with existing Kafka or clients, starting the Kafka application and running an end to end producer/consumer test can both be run individually.
 
 ## Limitations and caveats:
-Even with NTP, time between different servers can be off by several milliseconds.  By using the same server as the producer and consumer we can be sure that end to end latency reports are correct.  
+This script uses a single server and uses tc to simulat network latency. The automated "test-runner.py" tool will be effective at discovering the effect of specific configurations on both clients and the server.
 
-For especially large implementations of Kafka, you will need to run the client test separately and across multiple servers and aggregate the test results together.
+For testing existing Kafka clusters, try running only the "latency.py" file and redirected the script towards your kafka implementation.  Conversely, if you want to test your local client against Kafka, try running only the "setup_kafka.py" script to setup a local version of kafka with simulated latency.
 
-ZGC is not tested.  In my experience Kafka doesn't need large heaps, but ZGC does look promising for reliably low latency Kafka usage.
+ZGC is not included in the test.  Support can be added later if there is a need.
 
 This script does not test updating OS settings like huge pages. That could be added at a later date.  This is what I'm using, but your implementation may need different settings.
 
@@ -59,61 +59,15 @@ fs.aio-max-nr = 1048576
 * hard memlock unlimited
 ```
 
-XFS file system
-mq-deadline IO scheduler
+XFS file system, mq-deadline IO scheduler
 
-JMX monitoring is not configured for the network namespace.  Could be added at a future date.
 
 ## Usage
-Edit the "test-runner.py" script to choose what configs you want to optimize and what values you want to test for.
+Edit the "config.yaml" to choose what configs you want to optimize, and what values you want to test for, and what the starting default settings are.
 
-For example, the following would only test and output results from "batch_size" in the "LATENCY_PARAMETERS" section:
+Starting default settings and what values to test for can matter significantly.  For example, "socket_receive_buffer_bytes" will affect how large of a batch can be successfully sent through.
 
-```bash
-KAFKA_PARAMS_TO_TEST = []
-LATENCY_PARAMS_TO_TEST = ['batch_size']
-```
-
-The following would test all said parameters for both the Kafka server and Kafka client.
-```bash
-KAFKA_PARAMS_TO_TEST = ['KAFKA_HEAP_OPTS', 'MaxGCPauseMillis', 'KAFKA_NUM_NETWORK_THREADS', 'KAFKA_NUM_IO_THREADS', 'socket_send_buffer_bytes', 'socket_receive_buffer_bytes']
-LATENCY_PARAMS_TO_TEST = ['consumer_count', 'partitions', 'producer_count', 'fetch_wait_max_ms']
-```
-
-You may want to run the test a few times, each time updating the "defaults" sections with the best results just in case an earlier value tested could be changed after a later value was changed.  For example, if the batch size is very high, a higher socket send and receive buffer would help.  Here is where you set the defaults:
-```bash
-# Set initial defaults
-defaults = {
-    'KAFKA_HEAP_OPTS': "-Xms4G -Xmx4G",
-    'MaxGCPauseMillis': "20",
-    'G1ConcRefinementThreads': "16",
-    'G1ParallelGCThreads': "16",
-    'KAFKA_NUM_NETWORK_THREADS': "4",
-    'KAFKA_NUM_IO_THREADS': "16",
-    'socket_send_buffer_bytes': "1048576",
-    'socket_receive_buffer_bytes': "524288",
-    'socket_request_max_bytes': "104857600",
-    'latency': "2ms"
-}
-
-# Set initial defaults for latency.py parameters
-latency_defaults = {
-    'batch_size': "16384",
-    'compression_type': "snappy",
-    'consumer_count': "5",
-    'producer_count': "5",
-    'fetch_wait_max_ms': "5",
-    'partitions': "10",
-    'bootstrap_server': "10.10.1.2:9092",
-    'linger_ms': "50",
-    'max_in_flight_messages': "5",
-    'max_latency': "600",
-    'acks': "-1",
-    'num_messages': "6400"
-}
-```
-
-You can edit the topic name, warmup time, and runtime of the test under the "run_test" function definition.  You may want to run the test for an extended period of time to make sure an old collection is included in the maximum latency if you have strict requirements.
+You can edit the topic name, warmup time, and runtime of the test under the "run_test" function definition within "test-runner.py".  You may want to run the test for an extended period of time to make sure an old collection is included in the maximum latency if you have strict requirements.
 
 ```bash
         '--topic', 'test_topic',
@@ -121,18 +75,35 @@ You can edit the topic name, warmup time, and runtime of the test under the "run
         '--warmup-time', '30',
 ```
 
-The results from your test will be written to the "test_results" directory.
+Tesults from each test will be written to the "test_results" directory as a csv file.  The following information is recorded: Test Name,Max Latency,Avg Latency,P99 Latency,Messages Per Second,Kafka Parameters,Client Parameters
 
 If you want to manually test Kafka or client options, you can run the "setup_kafka.py" and "latency.py" scripts individually.
 ```bash
-python setup_kafka.py --help
+python3 setup_kafka.py --help
+usage: setup_kafka.py [-h] [--namespace NAMESPACE] [--veth0 VETH0] [--veth1 VETH1] [--host_ip HOST_IP] [--ns_ip NS_IP] [--latency LATENCY]
+                      --data-directory DATA_DIRECTORY [--KAFKA_HEAP_OPTS KAFKA_HEAP_OPTS] [--MaxGCPauseMillis MAXGCPAUSEMILLIS]
+                      [--G1ConcRefinementThreads G1CONCREFINEMENTTHREADS] [--G1ParallelGCThreads G1PARALLELGCTHREADS]
+                      [--KAFKA_NUM_NETWORK_THREADS KAFKA_NUM_NETWORK_THREADS] [--KAFKA_NUM_IO_THREADS KAFKA_NUM_IO_THREADS]
+                      [--KAFKA_NUM_PARTITIONS KAFKA_NUM_PARTITIONS] [--kafka_port KAFKA_PORT]
+                      [--socket-send-buffer-bytes SOCKET_SEND_BUFFER_BYTES] [--socket-receive-buffer-bytes SOCKET_RECEIVE_BUFFER_BYTES]
+                      [--socket-request-max-bytes SOCKET_REQUEST_MAX_BYTES]
 
 ```
 ```bash
-python latency.py --help
+python3 latency.py --help
+usage: latency.py [-h] [--bootstrap-server BOOTSTRAP_SERVER] [--topic-name TOPIC_NAME] [--num-messages NUM_MESSAGES]
+                  [--warmup-time WARMUP_TIME] [--runtime RUNTIME] [--partitions PARTITIONS] [--replication-factor REPLICATION_FACTOR]
+                  [--batch-size BATCH_SIZE] [--acks ACKS] [--producer-count PRODUCER_COUNT] [--consumer-count CONSUMER_COUNT]
+                  [--fetch-wait-max-ms FETCH_WAIT_MAX_MS] [--max-latency MAX_LATENCY] [--max-in-flight-messages MAX_IN_FLIGHT_MESSAGES]
+                  [--compression-type COMPRESSION_TYPE] [--linger-ms LINGER_MS]
+                  [--queue-buffering-max-messages QUEUE_BUFFERING_MAX_MESSAGES] --payload-file PAYLOAD_FILE
 
 ```
+
+## Monitoring
+JMX is available by default on 10.10.1.2:9999.  Kafka stats available on 10.10.1.2:9092.  This is the virtual interface that creates artificial latency for Kafka --  note that monitoring will get the same latency.
+
 ## Known issues:
 During some failure conditions the virtual interface is not deleted.  Delete with 'ip link delete veth0'.
-
+Test only supports plaintext.
 

@@ -26,13 +26,13 @@ def generate_random_value(value_type):
 def generate_json_log(fields, field_types):
     log_obj = {}
     current_length = 0
-    while current_length < 190:  # Ensure the log message reaches at least 90 characters
+    while current_length < 400: 
         field = random.choice(fields)
         log_obj[field] = generate_random_value(field_types[field])
         log_str = json.dumps(log_obj, separators=(',', ':'))
         current_length = len(log_str)
     
-    if current_length < 90 or current_length < 120:  # Add one more field if needed to exceed 90 chars
+    if current_length < 180 or current_length < 240:
         field = random.choice(fields)
         log_obj[field] = generate_random_value(field_types[field])
     

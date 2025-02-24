@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import re
 import subprocess
 import argparse
 import signal
@@ -138,18 +139,14 @@ def update_kafka_properties(kafka_dir, ns_ip, kafka_port):
     with open(server_properties, 'r') as file:
         properties = file.readlines()
 
-    # Update the properties
     with open(server_properties, 'w') as file:
         auto_create_set = False
         for line in properties:
-            # Update advertised.listeners with the namespace IP and port
             if line.startswith("advertised.listeners"):
                 file.write(f"advertised.listeners=PLAINTEXT://{ns_ip}:{kafka_port}\n")
-            # Set auto.create.topics.enable to false if it exists
             elif line.startswith("auto.create.topics.enable"):
                 file.write("auto.create.topics.enable=false\n")
                 auto_create_set = True
-            # Set socket send, receive, and request max buffer bytes
             elif line.startswith("socket.send.buffer.bytes"):
                 file.write(f"socket.send.buffer.bytes={args.socket_send_buffer_bytes}\n")
             elif line.startswith("socket.receive.buffer.bytes"):
@@ -159,7 +156,6 @@ def update_kafka_properties(kafka_dir, ns_ip, kafka_port):
             else:
                 file.write(line)
         
-        # If auto.create.topics.enable is not present, append it to the file
         if not auto_create_set:
             file.write("auto.create.topics.enable=false\n")
     
@@ -169,26 +165,55 @@ def update_kafka_properties(kafka_dir, ns_ip, kafka_port):
     print(f"Set socket.request.max.bytes to {args.socket_request_max_bytes}")
     print("Ensured auto.create.topics.enable is set to false.")
 
+# Function to update kafka-run-class.sh to force JMX monitoring on 10.10.1.1 and port 9999
+def update_kafka_run_class(kafka_dir):
+    run_class_path = os.path.join(kafka_dir, "bin", "kafka-run-class.sh")
+    try:
+        with open(run_class_path, "r") as f:
+            lines = f.readlines()
+    except Exception as e:
+        print(f"Error reading {run_class_path}: {e}")
+        sys.exit(1)
+
+    new_lines = []
+    updated = False
+    jmx_options = ("-Dcom.sun.management.jmxremote "
+                   "-Dcom.sun.management.jmxremote.port=9999 "
+                   "-Dcom.sun.management.jmxremote.rmi.port=9999 "
+                   "-Dcom.sun.management.jmxremote.authenticate=false "
+                   "-Dcom.sun.management.jmxremote.ssl=false "
+                   "-Djava.rmi.server.hostname=10.10.1.2 ")
+    for line in lines:
+        # Look for the line that starts with exec and calls "$JAVA"
+        if not updated and re.search(r'^\s*exec\s+"\$JAVA"', line):
+            line = re.sub(r'(^\s*exec\s+"\$JAVA")', r'\1 ' + jmx_options, line)
+            updated = True
+        new_lines.append(line)
+
+    try:
+        with open(run_class_path, "w") as f:
+            f.writelines(new_lines)
+        print("Updated kafka-run-class.sh with JMX options (port 9999, hostname 10.10.1.2).")
+    except Exception as e:
+        print(f"Error writing to {run_class_path}: {e}")
+        sys.exit(1)
+
 # Function to start Kafka in the network namespace
 def start_kafka(kafka_dir):
     print("Starting Kafka broker in namespace...")
     kafka_server = os.path.join(kafka_dir, "bin", "kafka-server-start.sh")
     server_properties = os.path.join(kafka_dir, "config", "kraft", "server.properties")
 
-    # Setting the environment variables for Kafka Heap and GC options
     env_vars = {
         "KAFKA_HEAP_OPTS": args.KAFKA_HEAP_OPTS,
         "KAFKA_JVM_PERFORMANCE_OPTS": f"-XX:MaxGCPauseMillis={args.MaxGCPauseMillis} -XX:G1ConcRefinementThreads={args.G1ConcRefinementThreads} -XX:ParallelGCThreads={args.G1ParallelGCThreads}"
     }
 
-    # Construct the command to start Kafka with the environment variables
     command = (
         f"sudo ip netns exec {args.namespace} bash -c 'export KAFKA_HEAP_OPTS=\"{env_vars['KAFKA_HEAP_OPTS']}\" && "
         f"export KAFKA_JVM_PERFORMANCE_OPTS=\"{env_vars['KAFKA_JVM_PERFORMANCE_OPTS']}\" && "
         f"bash {kafka_server} {server_properties}'"
     )
-
-    # Start the Kafka process
     return subprocess.Popen(command, shell=True)
 
 # --------------------- LATENCY SETUP -----------------------------
@@ -208,10 +233,9 @@ run_command(f"ip netns exec {args.namespace} ip addr add {args.ns_ip} dev {args.
 run_command(f"ip netns exec {args.namespace} ip link set {args.veth1} up")
 run_command(f"ip netns exec {args.namespace} ip link set lo up")
 
-# Apply latency to veth0
 print(f"Applying latency of {args.latency} to {args.veth0}...")
 run_command(f"tc qdisc add dev {args.veth0} root netem delay {args.latency}")
-run_command(f"sysctl -w net.ipv4.ip_forward=1")
+run_command("sysctl -w net.ipv4.ip_forward=1")
 run_command(f"ip route add {args.ns_ip.split('/')[0]}/32 dev {args.veth0}")
 
 # --------------------- KAFKA SETUP -----------------------------
@@ -219,20 +243,17 @@ run_command(f"ip route add {args.ns_ip.split('/')[0]}/32 dev {args.veth0}")
 kafka_dir = "kafka_2.13-3.8.0"
 kafka_url = "https://downloads.apache.org/kafka/3.8.0/kafka_2.13-3.8.0.tgz"
 
-# Download and extract Kafka if not present
 if not os.path.isdir(kafka_dir):
     download_kafka(kafka_url, kafka_dir)
-
-    # Update Kafka properties
     update_kafka_properties(kafka_dir, args.ns_ip.split('/')[0], args.kafka_port)
-
-    # Initialize Kafka cluster
     initialize_kafka_cluster(kafka_dir, args.data_directory)
+
+# Update kafka-run-class.sh with JMX options
+update_kafka_run_class(kafka_dir)
 
 # Start Kafka inside the network namespace
 kafka_process = start_kafka(kafka_dir)
 
-# Wait for cleanup or manual interruption
 try:
     while True:
         time.sleep(1)

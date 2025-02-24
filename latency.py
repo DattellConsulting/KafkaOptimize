@@ -254,7 +254,7 @@ def run_test(args, messages_per_second, messages):
 # Main function to run producers and consumers in parallel using multiprocessing
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Kafka Latency Test Script")
-    parser.add_argument('--bootstrap-server', type=str, default="localhost:9092", help='Kafka broker address')
+    parser.add_argument('--bootstrap-server', type=str, default="10.10.1.2:9092", help='Kafka broker address')
     parser.add_argument('--topic-name', type=str, default="test_topic", help='Kafka topic name')
     parser.add_argument('--num-messages', type=int, default=1000, help='Total number of messages per second')
     parser.add_argument('--warmup-time', type=int, default=10, help='Warmup time in seconds')
