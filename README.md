@@ -15,7 +15,7 @@ Tested on Ubuntu 22.04.
 4. source myenv/bin/activate
 5. pip install confluent-kafka PyYAML
 6. python gen_json.py  # generate test data as large_flattened.json
-7. python test-runner.py  # run the test
+7. python test-runner.py  # runs the test using '/mnt/data/kafkatest' as the mount point for Kafka
 
 ## What the script does:
 Installs and tests throughput up to maximum end to end latency, records results, updates settings, and repeats.  If any settings increase throughput, the setting will be adopted as the new default for the rest of the test.  At the end of the test, the best configuration of Kafka and the clients will be output.
@@ -73,6 +73,12 @@ You can edit the topic name, warmup time, and runtime of the test under the "run
         '--topic', 'test_topic',
         '--runtime', '20',
         '--warmup-time', '30',
+```
+
+You can edit the data directory inside the "test-runner.py" file here:
+
+```bash
+'--data-directory', '/mnt/data/kafkatest'
 ```
 
 Tesults from each test will be written to the "test_results" directory as a csv file.  The following information is recorded: Test Name,Max Latency,Avg Latency,P99 Latency,Messages Per Second,Kafka Parameters,Client Parameters
