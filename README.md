@@ -1,3 +1,4 @@
+
 ## Objective:
 End to end performance testing and automated optimization for both Apache Kafka and clients.
 
@@ -5,7 +6,7 @@ End to end performance testing and automated optimization for both Apache Kafka 
 The performance testing tool that ships with Apache Kafka tests publish latency/throughput leaving consumer performance untested.  Additionally, the performance test does not attempt to optimize Kafka or the clients.
 
 ## Quickstart:
-This script uses the python client and Traffic Control (tc) to optionally simulate network latency, so you'll need to run as root.
+This script uses the python client and Traffic Control (tc) to simulate network latency, so you'll need to run as root.
 
 Tested on Ubuntu 22.04.
 
@@ -15,19 +16,32 @@ Tested on Ubuntu 22.04.
 4. source myenv/bin/activate
 5. pip install confluent-kafka PyYAML
 6. python gen_json.py  # generate test data as large_flattened.json
-7. python test-runner.py  # runs the test using '/mnt/data/kafkatest' as the mount point for Kafka
+7. mkdir /mnt/data/kafkatest # default mount point
+8. python test-runner.py  # runs the test
 
 ## What the script does:
 Installs and tests throughput up to maximum end to end latency, records results, updates settings, and repeats.  If any settings increase throughput, the setting will be adopted as the new default for the rest of the test.  At the end of the test, the best configuration of Kafka and the clients will be output.
 
 In case we want to run a test with existing Kafka or clients, starting the Kafka application and running an end to end producer/consumer test can both be run individually.
 
+## When should this script be used
+* Discover hardware bottlenecks/optimal instance size and disk IOPS using the monitoring endpoints along with maximum throughput.
+* Replace the large_flattened.json file with a copy of your data, get optimized settings for both your server and clients.
+* Use the csv output to generate graphs or other data to show examples of how different settings and hardware affect throughput.
+* For training new users and admins, discover how individual settings affect the cluster.
+* For integration testing, consider using setup_kafka.py to create kafka in your test environment.
+
+
 ## Limitations and caveats:
-This script uses a single server and uses tc to simulat network latency. The automated "test-runner.py" tool will be effective at discovering the effect of specific configurations on both clients and the server.
+Some Kafka setting will interact with each other in negative ways so be mindful of the default settings set in config.yaml.  For example, if I am testing ten consumer processes with a single partition, nine of my consumers will be idle.
+
+This script uses a single server and uses tc to simulate network latency. The automated "test-runner.py" tool will be effective at discovering the effect of specific configurations on both clients and the server.
 
 For testing existing Kafka clusters, try running only the "latency.py" file and redirected the script towards your kafka implementation.  Conversely, if you want to test your local client against Kafka, try running only the "setup_kafka.py" script to setup a local version of kafka with simulated latency.
 
 ZGC is not included in the test.  Support can be added later if there is a need.
+
+tc supports packet loss and network latency jitter, however these are not implemented. 
 
 This script does not test updating OS settings like huge pages. That could be added at a later date.  This is what I'm using, but your implementation may need different settings.
 
@@ -93,7 +107,6 @@ usage: setup_kafka.py [-h] [--namespace NAMESPACE] [--veth0 VETH0] [--veth1 VETH
                       [--KAFKA_NUM_PARTITIONS KAFKA_NUM_PARTITIONS] [--kafka_port KAFKA_PORT]
                       [--socket-send-buffer-bytes SOCKET_SEND_BUFFER_BYTES] [--socket-receive-buffer-bytes SOCKET_RECEIVE_BUFFER_BYTES]
                       [--socket-request-max-bytes SOCKET_REQUEST_MAX_BYTES]
-
 ```
 ```bash
 python3 latency.py --help
@@ -103,11 +116,10 @@ usage: latency.py [-h] [--bootstrap-server BOOTSTRAP_SERVER] [--topic-name TOPIC
                   [--fetch-wait-max-ms FETCH_WAIT_MAX_MS] [--max-latency MAX_LATENCY] [--max-in-flight-messages MAX_IN_FLIGHT_MESSAGES]
                   [--compression-type COMPRESSION_TYPE] [--linger-ms LINGER_MS]
                   [--queue-buffering-max-messages QUEUE_BUFFERING_MAX_MESSAGES] --payload-file PAYLOAD_FILE
-
 ```
 
 ## Monitoring
-JMX is available by default on 10.10.1.2:9999.  Kafka stats available on 10.10.1.2:9092.  This is the virtual interface that creates artificial latency for Kafka --  note that monitoring will get the same latency.
+JMX is available by default on 10.10.1.2:9999.  Kafka stats available on 10.10.1.2:9092.  This is the virtual interface that creates artificial latency for Kafka --  note that monitoring will get the same latency. I prefer DataDog for internet connected implementations and OpenSearch for air gapped implementations.
 
 ## Known issues:
 During some failure conditions the virtual interface is not deleted.  Delete with 'ip link delete veth0'.
