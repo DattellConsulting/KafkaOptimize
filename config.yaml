@@ -126,7 +126,7 @@ client_defaults:
   fetch_wait_max_ms: "5"
   linger_ms: "50"
   max_in_flight_messages: "5"
-  max_latency: "600"
+  max_latency: "100"
   acks: "-1"
   num_messages: "6400"
   bootstrap_server: "10.10.1.2:9092"
