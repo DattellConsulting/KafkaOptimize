@@ -3,6 +3,10 @@ import string
 import json
 import os
 
+# Configuration parameters
+field_count = 500  # Default 500 unique fields -- important for better simulation of compression
+target_size = 10 * 1024 * 1024  # Default 10MB -- test will cycle through this file, suggest at lest 10mb
+
 def generate_unique_fields(count=500):
     fields = set()
     while len(fields) < count:
@@ -51,10 +55,6 @@ def generate_log_file(filename, target_size=10 * 1024 * 1024, field_count=500):
             current_size += len(log_message) + 1
 
     print(f"Log file generated: {filename}, size: {os.path.getsize(filename)} bytes")
-
-# Configuration parameters
-field_count = 500  # Default 500 unique fields
-target_size = 10 * 1024 * 1024  # Default 10MB
 
 # Generate log file
 generate_log_file("large_flattened.json", target_size=target_size, field_count=field_count)
