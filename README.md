@@ -30,6 +30,7 @@ In case we want to run a test with existing Kafka or clients, starting the Kafka
 * Use the csv output to generate graphs or other data to show examples of how different settings and hardware affect throughput.
 * For training new users and admins, discover how individual settings affect the cluster.
 * For integration testing, consider using setup_kafka.py to create kafka in your test environment.
+* For monitoring Kafka cluster health, set the scriopt to run at a specific setting and log how average and maximum latency increase as the load on your cluster increases.
 
 
 ## Limitations and caveats:
