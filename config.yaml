@@ -69,7 +69,7 @@ client_parameters:
   compression_type:
     - "none"
     - "snappy"
-    - "zlib"
+    - "zstd"
     - "gzip"
   consumer_count:
     - "2"
